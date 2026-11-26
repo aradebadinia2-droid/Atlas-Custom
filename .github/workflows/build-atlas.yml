@@ -11,7 +11,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 90
     env:
-      ATLAS_RELEASE_VERSION: 0.1.7-custom.5
+      ATLAS_RELEASE_VERSION: 0.1.7-custom.5.1
       ATLAS_EDITION: full
     steps:
       - uses: actions/checkout@v4
@@ -335,6 +335,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'V5 patch check failed' }
           git apply v5.patch
           if ($LASTEXITCODE -ne 0) { throw 'V5 patch failed' }
+      - name: Scope Windows FFI lint exception to wake event module
+        shell: pwsh
+        run: |
+          $path = Join-Path $PWD 'crates/atlas-ui/src/lib.rs'
+          $source = [IO.File]::ReadAllText($path)
+          $needle = 'pub mod warm_start {'
+          if ([regex]::Matches($source, [regex]::Escape($needle)).Count -ne 1) { throw 'Warm start module not found exactly once' }
+          $source = $source.Replace($needle, "#[allow(unsafe_code)]`n$needle")
+          [IO.File]::WriteAllText($path, $source, [Text.UTF8Encoding]::new($false))
       - name: Compile original Atlas Windows icon
         shell: pwsh
         run: |
