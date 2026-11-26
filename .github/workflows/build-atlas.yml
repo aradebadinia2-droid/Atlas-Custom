@@ -11,8 +11,8 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 90
     env:
-      ATLAS_RELEASE_VERSION: 0.1.7-custom.3
-      ATLAS_EDITION: free
+      ATLAS_RELEASE_VERSION: 0.1.7-custom.5
+      ATLAS_EDITION: full
     steps:
       - uses: actions/checkout@v4
         with:
@@ -166,14 +166,196 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Patch check failed' }
           git apply custom.patch
           if ($LASTEXITCODE -ne 0) { throw 'Patch failed' }
+      - name: Apply background preload changes
+        shell: pwsh
+        run: |
+          $patch = @'
+          LS0tIGEvc3JjL21haW4ucnMKKysrIGIvc3JjL21haW4ucnMKQEAgLTY0LDYgKzY0LDEzIEBACiAgICAgI1tjZmcoZmVhdHVyZSA9
+          ICJkaGF0LWhlYXAiKV0KICAgICBsZXQgX3Byb2ZpbGVyID0gZGhhdDo6UHJvZmlsZXI6Om5ld19oZWFwKCk7CiAKKyAgICAjW2Nm
+          Zyh3aW5kb3dzKV0KKyAgICBsZXQgYmFja2dyb3VuZCA9IG1hdGNoIGF0bGFzX3VpOjp3YXJtX3N0YXJ0OjpwcmVwYXJlKCkgewor
+          ICAgICAgICBPayhtb2RlKSA9PiBtb2RlLAorICAgICAgICBFcnIoKCkpID0+IHJldHVybiwKKyAgICB9OworICAgICNbY2ZnKG5v
+          dCh3aW5kb3dzKSldCisgICAgbGV0IGJhY2tncm91bmQgPSBOb25lOwogICAgIGxldCBhcHBfc3RhcnRlZCA9IHN0ZDo6dGltZTo6
+          SW5zdGFudDo6bm93KCk7CiAgICAgdXNlIHRyYWNpbmdfc3Vic2NyaWJlcjo6cHJlbHVkZTo6KjsKICAgICB0cmFjaW5nX3N1YnNj
+          cmliZXI6OnJlZ2lzdHJ5KCkKQEAgLTEwMSw4ICsxMDgsOCBAQAogICAgICNbY2ZnKG5vdChmZWF0dXJlID0gImRoYXQtaGVhcCIp
+          KV0KICAgICBsZXQgb25fcXVpdCA9IE5vbmU7CiAKLSAgICBsZXQgaW5pdGlhbF9wYXRocyA9IHN0ZDo6ZW52OjphcmdzX29zKCku
+          c2tpcCgxKS5tYXAoSW50bzo6aW50bykuY29sbGVjdCgpOwotICAgIGF0bGFzX3VpOjpydW4oaGFuZGxlLCBhcHBfc3RhcnRlZCwg
+          b25fcXVpdCwgaW5pdGlhbF9wYXRocyk7CisgICAgbGV0IGluaXRpYWxfcGF0aHMgPSBzdGQ6OmVudjo6YXJnc19vcygpLnNraXAo
+          MSkuZmlsdGVyKHxhcmd8IGFyZyAhPSAiLS1iYWNrZ3JvdW5kIikubWFwKEludG86OmludG8pLmNvbGxlY3QoKTsKKyAgICBhdGxh
+          c191aTo6cnVuKGhhbmRsZSwgYXBwX3N0YXJ0ZWQsIG9uX3F1aXQsIGluaXRpYWxfcGF0aHMsIGJhY2tncm91bmQpOwogICAgICNb
+          Y2ZnKHdpbmRvd3MpXQogICAgIGF0bGFzX3dpbl9zcGFjZTo6Y3Jhc2g6Om1hcmtfY2xlYW5fZXhpdCgpOwogfQotLS0gYS9jcmF0
+          ZXMvYXRsYXMtdWkvc3JjL2xpYi5ycworKysgYi9jcmF0ZXMvYXRsYXMtdWkvc3JjL2xpYi5ycwpAQCAtMjA5LDYgKzIwOSw1NyBA
+          QAogICAgIHB1YiBpbmRleDogdXNpemUsCiB9CiAKKworLy8vIFBlci1zZXNzaW9uIFdpbmRvd3Mgd2FrZSBldmVudDogbm8gbmV0
+          d29yayBzZXJ2aWNlIGFuZCBubyBhZG1pbmlzdHJhdG9yIHJpZ2h0cy4KK3B1YiBtb2Qgd2FybV9zdGFydCB7CisgICAgcHViIHN0
+          cnVjdCBXYWtlRXZlbnQocHViKGNyYXRlKSBpc2l6ZSk7CisgICAgI1tjZmcod2luZG93cyldCisgICAgI1tsaW5rKG5hbWUgPSAi
+          a2VybmVsMzIiKV0KKyAgICBleHRlcm4gInN5c3RlbSIgeworICAgICAgICBmbiBDcmVhdGVFdmVudFcoYXR0cmlidXRlczogKmNv
+          bnN0IHN0ZDo6ZmZpOjpjX3ZvaWQsIG1hbnVhbDogaTMyLCBpbml0aWFsOiBpMzIsIG5hbWU6ICpjb25zdCB1MTYpIC0+IGlzaXpl
+          OworICAgICAgICBmbiBPcGVuRXZlbnRXKGFjY2VzczogdTMyLCBpbmhlcml0OiBpMzIsIG5hbWU6ICpjb25zdCB1MTYpIC0+IGlz
+          aXplOworICAgICAgICBmbiBTZXRFdmVudChldmVudDogaXNpemUpIC0+IGkzMjsKKyAgICAgICAgZm4gV2FpdEZvclNpbmdsZU9i
+          amVjdChldmVudDogaXNpemUsIG1pbGxpc2Vjb25kczogdTMyKSAtPiB1MzI7CisgICAgICAgIGZuIENsb3NlSGFuZGxlKGV2ZW50
+          OiBpc2l6ZSkgLT4gaTMyOworICAgICAgICBmbiBHZXRMYXN0RXJyb3IoKSAtPiB1MzI7CisgICAgfQorICAgICNbY2ZnKHdpbmRv
+          d3MpXQorICAgIGltcGwgRHJvcCBmb3IgV2FrZUV2ZW50IHsKKyAgICAgICAgZm4gZHJvcCgmbXV0IHNlbGYpIHsgdW5zYWZlIHsg
+          Q2xvc2VIYW5kbGUoc2VsZi4wKTsgfSB9CisgICAgfQorICAgIGltcGwgV2FrZUV2ZW50IHsKKyAgICAgICAgcHViIGZuIHJlcXVl
+          c3RlZCgmc2VsZikgLT4gYm9vbCB7CisgICAgICAgICAgICAjW2NmZyh3aW5kb3dzKV0KKyAgICAgICAgICAgIHsgdW5zYWZlIHsg
+          V2FpdEZvclNpbmdsZU9iamVjdChzZWxmLjAsIDApID09IDAgfSB9CisgICAgICAgICAgICAjW2NmZyhub3Qod2luZG93cykpXQor
+          ICAgICAgICAgICAgeyBmYWxzZSB9CisgICAgICAgIH0KKyAgICB9CisgICAgI1tjZmcod2luZG93cyldCisgICAgcHViIGZuIHBy
+          ZXBhcmUoKSAtPiBSZXN1bHQ8T3B0aW9uPFdha2VFdmVudD4sICgpPiB7CisgICAgICAgIGxldCBhcmdzOiBWZWM8Xz4gPSBzdGQ6
+          OmVudjo6YXJnc19vcygpLnNraXAoMSkuY29sbGVjdCgpOworICAgICAgICBsZXQgbmFtZTogVmVjPHUxNj4gPSAiTG9jYWxcXEF0
+          bGFzQ3VzdG9tMDE3LVdhcm1TdGFydC12NCIuZW5jb2RlX3V0ZjE2KCkuY2hhaW4oU29tZSgwKSkuY29sbGVjdCgpOworICAgICAg
+          ICB1bnNhZmUgeworICAgICAgICAgICAgaWYgYXJncy5pc19lbXB0eSgpIHsKKyAgICAgICAgICAgICAgICBsZXQgZXhpc3Rpbmcg
+          PSBPcGVuRXZlbnRXKDB4MDAwMiwgMCwgbmFtZS5hc19wdHIoKSk7CisgICAgICAgICAgICAgICAgaWYgZXhpc3RpbmcgIT0gMCB7
+          CisgICAgICAgICAgICAgICAgICAgIGxldCBzZW50ID0gU2V0RXZlbnQoZXhpc3RpbmcpICE9IDA7CisgICAgICAgICAgICAgICAg
+          ICAgIENsb3NlSGFuZGxlKGV4aXN0aW5nKTsKKyAgICAgICAgICAgICAgICAgICAgaWYgc2VudCB7IHJldHVybiBFcnIoKCkpOyB9
+          CisgICAgICAgICAgICAgICAgfQorICAgICAgICAgICAgfQorICAgICAgICAgICAgaWYgYXJncy5sZW4oKSA9PSAxICYmIGFyZ3Nb
+          MF0gPT0gIi0tYmFja2dyb3VuZCIgeworICAgICAgICAgICAgICAgIGxldCBldmVudCA9IENyZWF0ZUV2ZW50VyhzdGQ6OnB0cjo6
+          bnVsbCgpLCAwLCAwLCBuYW1lLmFzX3B0cigpKTsKKyAgICAgICAgICAgICAgICBsZXQgZXJyb3IgPSBHZXRMYXN0RXJyb3IoKTsK
+          KyAgICAgICAgICAgICAgICBpZiBldmVudCA9PSAwIHsgcmV0dXJuIEVycigoKSk7IH0KKyAgICAgICAgICAgICAgICBpZiBlcnJv
+          ciA9PSAxODMgeyBDbG9zZUhhbmRsZShldmVudCk7IHJldHVybiBFcnIoKCkpOyB9CisgICAgICAgICAgICAgICAgcmV0dXJuIE9r
+          KFNvbWUoV2FrZUV2ZW50KGV2ZW50KSkpOworICAgICAgICAgICAgfQorICAgICAgICB9CisgICAgICAgIE9rKE5vbmUpCisgICAg
+          fQorfQorCiAvLy8gTGF1bmNoIHRoZSBncHVpIGFwcGxpY2F0aW9uLiBUaGUgY2FsbGVyIG93bnMgdGhlIHRva2lvIHJ1bnRpbWUg
+          YW5kIHBhc3NlcyBpdHMKIC8vLyBoYW5kbGUgaW47IGdwdWkgZHJpdmVzIHRoZSBVSSBvbiB0aGUgY2FsbGluZyAobWFpbikgdGhy
+          ZWFkLgogcHViIGZuIHJ1bigKQEAgLTIxNiw2ICsyNjcsNyBAQAogICAgIGFwcF9zdGFydGVkOiBJbnN0YW50LAogICAgIG9uX3F1
+          aXQ6IE9wdGlvbjxCb3g8ZHluIEZuT25jZSgpICsgJ3N0YXRpYz4+LAogICAgIGluaXRpYWxfcGF0aHM6IFZlYzxzdGQ6OnBhdGg6
+          OlBhdGhCdWY+LAorICAgIGJhY2tncm91bmQ6IE9wdGlvbjx3YXJtX3N0YXJ0OjpXYWtlRXZlbnQ+LAogKSB7CiAgICAgbGV0IHJ1
+          bl9zdGFydGVkID0gSW5zdGFudDo6bm93KCk7CiAgICAgI1tjZmcoZmVhdHVyZSA9ICJ1aS1sYWIiKV0KQEAgLTMzMCwxMSArMzgy
+          LDEyIEBACiAgICAgICAgIGxldCBoaWRkZW5fcHJldmlld19sYWIgPSBzdGQ6OmVudjo6dmFyX29zKCJBVExBU19QUkVWSUVXX0xB
+          QiIpLmlzX3NvbWUoKTsKICAgICAgICAgI1tjZmcobm90KGZlYXR1cmUgPSAidWktbGFiIikpXQogICAgICAgICBsZXQgaGlkZGVu
+          X3ByZXZpZXdfbGFiID0gZmFsc2U7CisgICAgICAgIGxldCB3YXJtID0gYmFja2dyb3VuZC5pc19zb21lKCk7CiAgICAgICAgIGxl
+          dCB3aW5kb3dfb3B0aW9ucyA9IFdpbmRvd09wdGlvbnMgewogICAgICAgICAgICAgLy8gV2luZG93cyBkZWxpdmVycyBkZW1hbmQt
+          ZHJpdmVuIGZyYW1lcyB0aHJvdWdoIFdNX1BBSU5ULiBBIGhpZGRlbgogICAgICAgICAgICAgLy8gd2luZG93IG1heSBuZXZlciBy
+          ZWNlaXZlIGl0LCBzbyB2aXNpYmlsaXR5IGNhbm5vdCB3YWl0IGZvciBhIGZyYW1lLgotICAgICAgICAgICAgc2hvdzogIWhpZGRl
+          bl9wcmV2aWV3X2xhYiwKLSAgICAgICAgICAgIGZvY3VzOiAhaGlkZGVuX3ByZXZpZXdfbGFiLAorICAgICAgICAgICAgc2hvdzog
+          IWhpZGRlbl9wcmV2aWV3X2xhYiAmJiAhd2FybSwKKyAgICAgICAgICAgIGZvY3VzOiAhaGlkZGVuX3ByZXZpZXdfbGFiICYmICF3
+          YXJtLAogICAgICAgICAgICAgdGl0bGViYXI6IFNvbWUoVGl0bGVCYXI6OnRpdGxlX2Jhcl9vcHRpb25zKCkpLAogICAgICAgICAg
+          ICAgd2luZG93X2JvdW5kczogU29tZShXaW5kb3dCb3VuZHM6OmNlbnRlcmVkKHNpemUocHgoMTI4MC4pLCBweCg4MDAuKSksIGN4
+          KSksCiAgICAgICAgICAgICB3aW5kb3dfbWluX3NpemU6IFNvbWUoc2l6ZShweCg5MDAuKSwgcHgoNTYwLikpKSwKQEAgLTM2NCw4
+          ICs0MTcsOCBAQAogICAgICAgICAgICAgLy8gYWJvdXQgdG8gcXVpdCwgZ2F0ZWQgYnkgdGhlIHVzZXIncyBhdXRvc2F2ZS1zZXNz
+          aW9uIHNldHRpbmcuCiAgICAgICAgICAgICBsZXQgd2Vha19hcHAgPSB2aWV3LmRvd25ncmFkZSgpOwogICAgICAgICAgICAgbGV0
+          IGNsb3NpbmdfYXBwID0gdmlldy5kb3duZ3JhZGUoKTsKLSAgICAgICAgICAgIHdpbmRvdy5vbl93aW5kb3dfc2hvdWxkX2Nsb3Nl
+          KGN4LCBtb3ZlIHxfLCBjeHwgewotICAgICAgICAgICAgICAgIGNsb3NpbmdfYXBwCisgICAgICAgICAgICB3aW5kb3cub25fd2lu
+          ZG93X3Nob3VsZF9jbG9zZShjeCwgbW92ZSB8d2luZG93LCBjeHwgeworICAgICAgICAgICAgICAgIGxldCBhbGxvd2VkID0gY2xv
+          c2luZ19hcHAKICAgICAgICAgICAgICAgICAgICAgLnVwZGF0ZShjeCwgfGFwcCwgY3h8IHsKICAgICAgICAgICAgICAgICAgICAg
+          ICAgIGxldCBhbGxvd2VkID0gYXBwLmNsb3NlX25hdGl2ZV92YXVsdChmYWxzZSk7CiAgICAgICAgICAgICAgICAgICAgICAgICAv
+          LyBUaGUgdGl0bGUtYmFyIGNsb3NlIGRlc3Ryb3lzIHRoZSB3aW5kb3cgKGFuZCB0aGlzCkBAIC0zNzYsNyArNDI5LDExIEBACiAg
+          ICAgICAgICAgICAgICAgICAgICAgICBjeC5ub3RpZnkoKTsKICAgICAgICAgICAgICAgICAgICAgICAgIGFsbG93ZWQKICAgICAg
+          ICAgICAgICAgICAgICAgfSkKLSAgICAgICAgICAgICAgICAgICAgLnVud3JhcF9vcih0cnVlKQorICAgICAgICAgICAgICAgICAg
+          ICAudW53cmFwX29yKHRydWUpOworICAgICAgICAgICAgICAgIGlmIGFsbG93ZWQgJiYgd2FybSB7CisgICAgICAgICAgICAgICAg
+          ICAgIHdpbmRvdy5zZXRfdmlzaWJsZShmYWxzZSk7CisgICAgICAgICAgICAgICAgICAgIGZhbHNlCisgICAgICAgICAgICAgICAg
+          fSBlbHNlIHsgYWxsb3dlZCB9CiAgICAgICAgICAgICB9KTsKICAgICAgICAgICAgIGN4Lm9uX2FwcF9xdWl0KG1vdmUgfGN4fCB7
+          CiAgICAgICAgICAgICAgICAgI1tjZmcoZmVhdHVyZSA9ICJjb252ZXJzaW9uLWxhYiIpXQpAQCAtMzk1LDYgKzQ1MiwxNyBAQAog
+          ICAgICAgICAgICAgICAgIHN0ZDo6ZnV0dXJlOjpyZWFkeSgoKSkKICAgICAgICAgICAgIH0pCiAgICAgICAgICAgICAuZGV0YWNo
+          KCk7CisgICAgICAgICAgICBpZiBsZXQgU29tZShldmVudCkgPSBiYWNrZ3JvdW5kIHsKKyAgICAgICAgICAgICAgICBsZXQgd2lu
+          ZG93X2hhbmRsZSA9IHdpbmRvdy53aW5kb3dfaGFuZGxlKCk7CisgICAgICAgICAgICAgICAgY3guc3Bhd24oYXN5bmMgbW92ZSB8
+          Y3h8IGxvb3AgeworICAgICAgICAgICAgICAgICAgICBjeC5iYWNrZ3JvdW5kX2V4ZWN1dG9yKCkudGltZXIoc3RkOjp0aW1lOjpE
+          dXJhdGlvbjo6ZnJvbV9taWxsaXMoMTAwKSkuYXdhaXQ7CisgICAgICAgICAgICAgICAgICAgIGlmIGV2ZW50LnJlcXVlc3RlZCgp
+          ICYmIGN4LnVwZGF0ZV93aW5kb3cod2luZG93X2hhbmRsZSwgfF8sIHdpbmRvdywgX3wgeworICAgICAgICAgICAgICAgICAgICAg
+          ICAgd2luZG93LnNldF92aXNpYmxlKHRydWUpOworICAgICAgICAgICAgICAgICAgICAgICAgd2luZG93LmFjdGl2YXRlKCk7Cisg
+          ICAgICAgICAgICAgICAgICAgICAgICB3aW5kb3cucmVmcmVzaCgpOworICAgICAgICAgICAgICAgICAgICB9KS5pc19lcnIoKSB7
+          IGJyZWFrOyB9CisgICAgICAgICAgICAgICAgfSkuZGV0YWNoKCk7CisgICAgICAgICAgICB9CiAgICAgICAgICAgICBsZXQgY2hl
+          Y2twb2ludF9hcHAgPSB2aWV3LmRvd25ncmFkZSgpOwogICAgICAgICAgICAgY3guc3Bhd24oYXN5bmMgbW92ZSB8Y3h8IGxvb3Ag
+          ewogICAgICAgICAgICAgICAgIGN4LmJhY2tncm91bmRfZXhlY3V0b3IoKQotLS0gYS9jcmF0ZXMvYXRsYXMtY29yZS9zcmMvdXRp
+          bC9jb25maWcucnMKKysrIGIvY3JhdGVzL2F0bGFzLWNvcmUvc3JjL3V0aWwvY29uZmlnLnJzCkBAIC0yMiw2ICsyMiwxMCBAQAog
+          ICAgIC8vIHdpdGhvdXQgb3ZlcndyaXRpbmcgdGhlIHVzZXIncyBzZXNzaW9uIG9yIHByZWZlcmVuY2VzLgogICAgIGlmIGxldCBT
+          b21lKHBhdGgpID0gc3RkOjplbnY6OnZhcl9vcygiQVRMQVNfQ09ORklHX0RJUiIpLmZpbHRlcih8cGF0aHwgIXBhdGguaXNfZW1w
+          dHkoKSkgewogICAgICAgICByZXR1cm4gUGF0aEJ1Zjo6ZnJvbShwYXRoKTsKKyAgICB9CisgICAgI1tjZmcod2luZG93cyldCisg
+          ICAgaWYgbGV0IFNvbWUobG9jYWwpID0gc3RkOjplbnY6OnZhcl9vcygiTE9DQUxBUFBEQVRBIikgeworICAgICAgICByZXR1cm4g
+          UGF0aEJ1Zjo6ZnJvbShsb2NhbCkuam9pbigiQXRsYXNDdXN0b20wMTciKS5qb2luKCJjb25maWciKTsKICAgICB9CiAgICAgZGly
+          czo6Y29uZmlnX2RpcigpLm1hcF9vcl9lbHNlKHx8IFBhdGhCdWY6OmZyb20oIi4iKSwgfHB8IHAuam9pbihBUFBfTkFNRSkpCiB9
+          Ci0tLSBhL3ZlbmRvci9ncHVpLWNlL2NyYXRlcy9ncHVpX3dpbmRvd3Mvc3JjL3dpbmRvdy5ycworKysgYi92ZW5kb3IvZ3B1aS1j
+          ZS9jcmF0ZXMvZ3B1aV93aW5kb3dzL3NyYy93aW5kb3cucnMKQEAgLTYwMSw2ICs2MDEsMTAgQEAKICAgICAgICAgICAgICAgICB9
+          KS5kZXRhY2goKTsKICAgICAgICAgICAgIH0KICAgICAgICAgfSBlbHNlIHsKKyAgICAgICAgICAgIGlmIHBhcmFtcy5hcHBfaWQu
+          YXNfZGVyZWYoKSA9PSBTb21lKCJhdGxhcyIpIHsKKyAgICAgICAgICAgICAgICBsZXQgZGlzYWJsZWQ6IGkzMiA9IDE7CisgICAg
+          ICAgICAgICAgICAgbGV0IF8gPSB1bnNhZmUgeyBEd21TZXRXaW5kb3dBdHRyaWJ1dGUoaHduZCwgRFdNV0FfVFJBTlNJVElPTlNf
+          Rk9SQ0VESVNBQkxFRCwgJmRpc2FibGVkIGFzICpjb25zdCBfIGFzICpjb25zdCBfLCBzdGQ6Om1lbTo6c2l6ZV9vZl92YWwoJmRp
+          c2FibGVkKSBhcyB1MzIpIH07CisgICAgICAgICAgICB9CiAgICAgICAgICAgICB0aGlzLnN0YXRlLmluaXRpYWxfcGxhY2VtZW50
+          LnNldChTb21lKFdpbmRvd09wZW5TdGF0dXMgewogICAgICAgICAgICAgICAgIHBsYWNlbWVudCwKICAgICAgICAgICAgICAgICBz
+          dGF0ZTogV2luZG93T3BlblN0YXRlOjpXaW5kb3dlZCwKQEAgLTk1NCw2ICs5NTgsMjEgQEAKICAgICAgICAgICAgICAgICAgICAg
+          bGV0IGhhc19pbml0aWFsX3BsYWNlbWVudCA9IGluaXRpYWxfcGxhY2VtZW50LmlzX3NvbWUoKTsKICAgICAgICAgICAgICAgICAg
+          ICAgdGhpcy5zdGF0ZS5pbml0aWFsX3BsYWNlbWVudC5zZXQoaW5pdGlhbF9wbGFjZW1lbnQpOwogICAgICAgICAgICAgICAgICAg
+          ICB0aGlzLnNldF93aW5kb3dfcGxhY2VtZW50KCkubG9nX2VycigpOworICAgICAgICAgICAgICAgICAgICBpZiBoYXNfaW5pdGlh
+          bF9wbGFjZW1lbnQgeworICAgICAgICAgICAgICAgICAgICAgICAgbGV0IHdlYWsgPSBSYzo6ZG93bmdyYWRlKCZ0aGlzKTsKKyAg
+          ICAgICAgICAgICAgICAgICAgICAgIGxldCAodHgsIHJ4KSA9IG9uZXNob3Q6OmNoYW5uZWw6OjwoKT4oKTsKKyAgICAgICAgICAg
+          ICAgICAgICAgICAgIHN0ZDo6dGhyZWFkOjpzcGF3bihtb3ZlIHx8IHsKKyAgICAgICAgICAgICAgICAgICAgICAgICAgICBzdGQ6
+          OnRocmVhZDo6c2xlZXAoRHVyYXRpb246OmZyb21fbWlsbGlzKDUwMCkpOworICAgICAgICAgICAgICAgICAgICAgICAgICAgIGxl
+          dCBfID0gdHguc2VuZCgoKSk7CisgICAgICAgICAgICAgICAgICAgICAgICB9KTsKKyAgICAgICAgICAgICAgICAgICAgICAgIHRo
+          aXMuZXhlY3V0b3Iuc3Bhd24oYXN5bmMgbW92ZSB7CisgICAgICAgICAgICAgICAgICAgICAgICAgICAgbGV0IF8gPSByeC5hd2Fp
+          dDsKKyAgICAgICAgICAgICAgICAgICAgICAgICAgICBpZiBsZXQgU29tZSh3aW5kb3cpID0gd2Vhay51cGdyYWRlKCkgeworICAg
+          ICAgICAgICAgICAgICAgICAgICAgICAgICAgICBsZXQgZW5hYmxlZDogaTMyID0gMDsKKyAgICAgICAgICAgICAgICAgICAgICAg
+          ICAgICAgICAgbGV0IF8gPSB1bnNhZmUgeyBEd21TZXRXaW5kb3dBdHRyaWJ1dGUod2luZG93Lmh3bmQsIERXTVdBX1RSQU5TSVRJ
+          T05TX0ZPUkNFRElTQUJMRUQsICZlbmFibGVkIGFzICpjb25zdCBfIGFzICpjb25zdCBfLCBzdGQ6Om1lbTo6c2l6ZV9vZl92YWwo
+          JmVuYWJsZWQpIGFzIHUzMikgfTsKKyAgICAgICAgICAgICAgICAgICAgICAgICAgICB9CisgICAgICAgICAgICAgICAgICAgICAg
+          ICB9KS5kZXRhY2goKTsKKyAgICAgICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgICAgICBpZiAhaGFzX2luaXRpYWxf
+          cGxhY2VtZW50IHsKICAgICAgICAgICAgICAgICAgICAgICAgIHVuc2FmZSB7CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+          U2hvd1dpbmRvd0FzeW5jKGh3bmQsIFNXX1NIT1dOT0FDVElWQVRFKS5vaygpLmxvZ19lcnIoKTsK
+          '@
+          [IO.File]::WriteAllBytes("$PWD/warm.patch", [Convert]::FromBase64String($patch))
+          git apply --check warm.patch
+          if ($LASTEXITCODE -ne 0) { throw 'Warm patch check failed' }
+          git apply warm.patch
+          if ($LASTEXITCODE -ne 0) { throw 'Warm patch failed' }
+      - name: Apply Full build icon and idle efficiency changes
+        shell: pwsh
+        run: |
+          $patch = @'
+          LS0tIGEvc2NyaXB0cy93aW5mc3AtYnVpbGQucnMKKysrIGIvc2NyaXB0cy93aW5mc3AtYnVpbGQucnMKQEAgLTEzLDYgKzEzLDExIEBACiAgICAgICAg
+          IHByaW50bG4hKCJjYXJnbzpydXN0Yy1saW5rLWFyZy1iaW5zPS9TVEFDSzoxNjc3NzIxNiIpOwogICAgICAgICAvLyBFbWJlZCBvbmx5IHRoZSBQREIn
+          cyBmaWxlIG5hbWUsIG5vdCB0aGUgYnVpbGQgbWFjaGluZSdzIHBhdGguCiAgICAgICAgIHByaW50bG4hKCJjYXJnbzpydXN0Yy1saW5rLWFyZy1iaW5z
+          PS9QREJBTFRQQVRIOiVfUERCJSIpOworICAgICAgICBwcmludGxuISgiY2FyZ286cmVydW4taWYtZW52LWNoYW5nZWQ9QVRMQVNfQ1VTVE9NX0lDT05f
+          UkVTIik7CisgICAgICAgIHByaW50bG4hKCJjYXJnbzpyZXJ1bi1pZi1jaGFuZ2VkPXBhY2thZ2luZy9pY29ucy9hdGxhcy5pY28iKTsKKyAgICAgICAg
+          aWYgbGV0IFNvbWUocmVzb3VyY2UpID0gc3RkOjplbnY6OnZhcl9vcygiQVRMQVNfQ1VTVE9NX0lDT05fUkVTIikgeworICAgICAgICAgICAgcHJpbnRs
+          biEoImNhcmdvOnJ1c3RjLWxpbmstYXJnLWJpbj1hdGxhcz17fSIsIHN0ZDo6cGF0aDo6UGF0aEJ1Zjo6ZnJvbShyZXNvdXJjZSkuZGlzcGxheSgpKTsK
+          KyAgICAgICAgfQogICAgIH0KICAgICBsZXQgYXJjaCA9IHN0ZDo6ZW52Ojp2YXIoIkNBUkdPX0NGR19UQVJHRVRfQVJDSCIpLnVud3JhcF9vcl9kZWZh
+          dWx0KCk7CiAgICAgbGV0IGRsbCA9IG1hdGNoIGFyY2guYXNfc3RyKCkgewotLS0gYS9jcmF0ZXMvYXRsYXMtdWkvc3JjL2xpYi5ycworKysgYi9jcmF0
+          ZXMvYXRsYXMtdWkvc3JjL2xpYi5ycwpAQCAtMjI4LDExICsyMjgsMTEgQEAKICAgICAgICAgZm4gZHJvcCgmbXV0IHNlbGYpIHsgdW5zYWZlIHsgQ2xv
+          c2VIYW5kbGUoc2VsZi4wKTsgfSB9CiAgICAgfQogICAgIGltcGwgV2FrZUV2ZW50IHsKLSAgICAgICAgcHViIGZuIHJlcXVlc3RlZCgmc2VsZikgLT4g
+          Ym9vbCB7CisgICAgICAgIHB1YiBmbiB3YWl0KCZzZWxmKSAtPiBib29sIHsKICAgICAgICAgICAgICNbY2ZnKHdpbmRvd3MpXQotICAgICAgICAgICAg
+          eyB1bnNhZmUgeyBXYWl0Rm9yU2luZ2xlT2JqZWN0KHNlbGYuMCwgMCkgPT0gMCB9IH0KKyAgICAgICAgICAgIHsgdW5zYWZlIHsgV2FpdEZvclNpbmds
+          ZU9iamVjdChzZWxmLjAsIDEwMDApID09IDAgfSB9CiAgICAgICAgICAgICAjW2NmZyhub3Qod2luZG93cykpXQotICAgICAgICAgICAgeyBmYWxzZSB9
+          CisgICAgICAgICAgICB7IHN0ZDo6dGhyZWFkOjpzbGVlcChzdGQ6OnRpbWU6OkR1cmF0aW9uOjpmcm9tX3NlY3MoMSkpOyBmYWxzZSB9CiAgICAgICAg
+          IH0KICAgICB9CiAgICAgI1tjZmcod2luZG93cyldCkBAIC0zOTUsNiArMzk1LDcgQEAKICAgICAgICAgICAgIC4uRGVmYXVsdDo6ZGVmYXVsdCgpCiAg
+          ICAgICAgIH07CiAKKyAgICAgICAgbGV0IHdhcm1fcnVudGltZSA9IGhhbmRsZS5jbG9uZSgpOwogICAgICAgICBsZXQgYXBwX3NldHRpbmdzID0gc2V0
+          dGluZ3MuY2xvbmUoKTsKICAgICAgICAgbGV0IHdpbmRvd19zdGFydGVkID0gSW5zdGFudDo6bm93KCk7CiAgICAgICAgIGlmIGxldCBFcnIoZXJyKSA9
+          IGN4Lm9wZW5fd2luZG93KHdpbmRvd19vcHRpb25zLCBtb3ZlIHx3aW5kb3csIGN4fCB7CkBAIC00NTQsMTMgKzQ1NSwyMCBAQAogICAgICAgICAgICAg
+          LmRldGFjaCgpOwogICAgICAgICAgICAgaWYgbGV0IFNvbWUoZXZlbnQpID0gYmFja2dyb3VuZCB7CiAgICAgICAgICAgICAgICAgbGV0IHdpbmRvd19o
+          YW5kbGUgPSB3aW5kb3cud2luZG93X2hhbmRsZSgpOwotICAgICAgICAgICAgICAgIGN4LnNwYXduKGFzeW5jIG1vdmUgfGN4fCBsb29wIHsKLSAgICAg
+          ICAgICAgICAgICAgICAgY3guYmFja2dyb3VuZF9leGVjdXRvcigpLnRpbWVyKHN0ZDo6dGltZTo6RHVyYXRpb246OmZyb21fbWlsbGlzKDEwMCkpLmF3
+          YWl0OwotICAgICAgICAgICAgICAgICAgICBpZiBldmVudC5yZXF1ZXN0ZWQoKSAmJiBjeC51cGRhdGVfd2luZG93KHdpbmRvd19oYW5kbGUsIHxfLCB3
+          aW5kb3csIF98IHsKKyAgICAgICAgICAgICAgICBjeC5zcGF3bihhc3luYyBtb3ZlIHxjeHwgeworICAgICAgICAgICAgICAgICAgICBsZXQgbXV0IGV2
+          ZW50ID0gZXZlbnQ7CisgICAgICAgICAgICAgICAgICAgIGxvb3AgeworICAgICAgICAgICAgICAgICAgICBsZXQgT2soKHJldHVybmVkLCByZXF1ZXN0
+          ZWQpKSA9IHdhcm1fcnVudGltZS5zcGF3bl9ibG9ja2luZyhtb3ZlIHx8IHsKKyAgICAgICAgICAgICAgICAgICAgICAgIGxldCByZXF1ZXN0ZWQgPSBl
+          dmVudC53YWl0KCk7CisgICAgICAgICAgICAgICAgICAgICAgICAoZXZlbnQsIHJlcXVlc3RlZCkKKyAgICAgICAgICAgICAgICAgICAgfSkuYXdhaXQg
+          ZWxzZSB7IGJyZWFrOyB9OworICAgICAgICAgICAgICAgICAgICBldmVudCA9IHJldHVybmVkOworICAgICAgICAgICAgICAgICAgICBpZiByZXF1ZXN0
+          ZWQgJiYgY3gudXBkYXRlX3dpbmRvdyh3aW5kb3dfaGFuZGxlLCB8Xywgd2luZG93LCBffCB7CiAgICAgICAgICAgICAgICAgICAgICAgICB3aW5kb3cu
+          c2V0X3Zpc2libGUodHJ1ZSk7CiAgICAgICAgICAgICAgICAgICAgICAgICB3aW5kb3cuYWN0aXZhdGUoKTsKICAgICAgICAgICAgICAgICAgICAgICAg
+          IHdpbmRvdy5yZWZyZXNoKCk7CiAgICAgICAgICAgICAgICAgICAgIH0pLmlzX2VycigpIHsgYnJlYWs7IH0KKyAgICAgICAgICAgICAgICAgICAgfQog
+          ICAgICAgICAgICAgICAgIH0pLmRldGFjaCgpOwogICAgICAgICAgICAgfQogICAgICAgICAgICAgbGV0IGNoZWNrcG9pbnRfYXBwID0gdmlldy5kb3du
+          Z3JhZGUoKTsK
+          '@
+          [IO.File]::WriteAllBytes("$PWD/v5.patch", [Convert]::FromBase64String($patch))
+          git apply --check v5.patch
+          if ($LASTEXITCODE -ne 0) { throw 'V5 patch check failed' }
+          git apply v5.patch
+          if ($LASTEXITCODE -ne 0) { throw 'V5 patch failed' }
+      - name: Compile original Atlas Windows icon
+        shell: pwsh
+        run: |
+          $sdk = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
+          $rc = Get-ChildItem $sdk -Directory | Sort-Object Name -Descending | ForEach-Object { Join-Path $_.FullName 'x64\rc.exe' } | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $rc) { throw 'Windows SDK resource compiler not found' }
+          $ico = (Resolve-Path 'packaging/icons/atlas.ico').Path.Replace('\','/')
+          $rcFile = Join-Path $PWD 'atlas-custom-icon.rc'
+          $resFile = Join-Path $PWD 'atlas-custom-icon.res'
+          ('1 ICON "' + $ico + '"') | Set-Content -Encoding ascii $rcFile
+          & $rc /nologo /fo $resFile $rcFile
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $resFile)) { throw 'Icon resource compilation failed' }
+          "ATLAS_CUSTOM_ICON_RES=$resFile" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: '1.97.1'
       - uses: Swatinem/rust-cache@v2
-      - name: Build Windows Free edition
+      - name: Build Windows Full edition
         shell: pwsh
         run: |
-          cargo build --locked --release -p atlas -p atlas-search-service -p atlas-cloud-extension -p atlas-icon-extension --features free
+          cargo build --locked --release -p atlas -p atlas-search-service -p atlas-cloud-extension -p atlas-icon-extension
           if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
           & target/release/atlas.exe --version
           if ($LASTEXITCODE -ne 0) { throw 'Version check failed' }
@@ -184,13 +366,27 @@ jobs:
           New-Item -ItemType Directory -Force portable | Out-Null
           Copy-Item target/release/atlas.exe, target/release/atlas-search-service.exe, target/release/atlas-cloud-extension.exe, target/release/atlas-icon-extension.exe portable/
           Copy-Item target/windows-runtime/* portable/
-          Copy-Item LICENSE, NOTICE, custom.patch portable/
+          Copy-Item LICENSE, NOTICE, custom.patch, warm.patch, v5.patch portable/
+          Copy-Item packaging/icons/atlas.ico portable/atlas.ico
           @'
           @echo off
           cd /d "%~dp0"
           set "ATLAS_CONFIG_DIR=%LOCALAPPDATA%\AtlasCustom017\config"
           start "Atlas Custom" "%~dp0atlas.exe"
           '@ | Set-Content -Encoding ascii portable/START-ATLAS.cmd
+          @'
+          @echo off
+          cd /d "%~dp0"
+          powershell.exe -NoProfile -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path ([Environment]::GetFolderPath('Startup')) 'Atlas Background.lnk')); $s.TargetPath=(Join-Path (Get-Location).Path 'atlas.exe'); $s.Arguments='--background'; $s.WorkingDirectory=(Get-Location).Path; $s.Save()"
+          if errorlevel 1 (echo Could not enable startup.) else (echo Atlas will preload at your next Windows sign-in.)
+          pause
+          '@ | Set-Content -Encoding ascii portable/ENABLE-STARTUP.cmd
+          @'
+          @echo off
+          powershell.exe -NoProfile -Command "$p=Join-Path ([Environment]::GetFolderPath('Startup')) 'Atlas Background.lnk'; if(Test-Path -LiteralPath $p){Remove-Item -LiteralPath $p}"
+          echo Atlas startup shortcut removed. Exit Atlas with Ctrl+Q if it is running.
+          pause
+          '@ | Set-Content -Encoding ascii portable/DISABLE-STARTUP.cmd
       - uses: actions/upload-artifact@v4
         with:
           name: Atlas-Custom-Windows
@@ -199,7 +395,7 @@ jobs:
       - name: Archive corresponding source
         shell: pwsh
         run: |
-          git -c user.name='Atlas Custom' -c user.email='build@example.invalid' commit -am 'Custom thumbnails, sidebar, Downloads grouping and instant launch'
+          git -c user.name='Atlas Custom' -c user.email='build@example.invalid' commit -am 'Custom Full edition, thumbnails, sidebar, Downloads grouping, preload and icon'
           if ($LASTEXITCODE -ne 0) { throw 'Source snapshot failed' }
           git archive --format=zip -o atlas-custom-source.zip HEAD
           if ($LASTEXITCODE -ne 0) { throw 'Source archive failed' }
